@@ -2,7 +2,6 @@ package parser
 
 import (
 	"context"
-	"fmt"
 	"go/ast"
 	"go/types"
 	"strings"
@@ -13,23 +12,32 @@ import (
 
 const IMPORT_PATH = "x/dsl"
 
-const (
-	EXPR_STMT = iota
+const ( 
+	FUNC_STMT = iota
 )
 
-type Marker struct {
-	Sig funcSignature
+type FileSpec struct {
+	Pkg string
 
-	Args []ast.Expr
+	Markers []*MarkerSpec
+	Imports []*ImportSpec
+}
+
+type ImportSpec struct {
+	Path string
+	Name string
+}
+
+type MarkerSpec struct {
+	FunctionMarker *FunctionMarker
+
 	Node ast.Node
 	Type int
 }
 
 type Parser interface {
 	Load(ctx context.Context, directory string) ([]*packages.Package, []error)
-	ParseFile(pkg *packages.Package, f *ast.File) ([]*Marker, []error)
-
-	ExtractArgs(n ast.Node) []ast.Expr
+	ParseFile(pkg *packages.Package, f *ast.File) (*FileSpec, []error)
 }
 
 type parser struct {
@@ -116,9 +124,9 @@ func (p *parser) Load(ctx context.Context, directory string) ([]*packages.Packag
 	return pkgs, nil
 }
 
-func (p *parser) ParseFile(pkg *packages.Package, f *ast.File) ([]*Marker, []error) {
+func (p *parser) ParseFile(pkg *packages.Package, f *ast.File) (*FileSpec, []error) {
 	//TODO: make parallel
-	markers := make([]*Marker, 0)
+	markers := make([]*MarkerSpec, 0)
 	for _, decl := range f.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if !ok {
@@ -130,31 +138,30 @@ func (p *parser) ParseFile(pkg *packages.Package, f *ast.File) ([]*Marker, []err
 		}
 		markers = append(markers, em...)
 	}
-	return markers, []error{}
-}
 
-func (p *parser) ExtractArgs(n ast.Node) []ast.Expr {
-	args := make([]ast.Expr, 0)
-	if fnCall, ok := n.(*ast.CallExpr); ok {
-		for _, arg := range fnCall.Args {
-			switch v := arg.(type) {
-			case *ast.BasicLit:
-				args = append(args, v)
-			case *ast.Ident:
-				args = append(args, v)
-			default:
-				fmt.Println("Unrecognized type")
-			}
+	imports := make([]*ImportSpec, 0)
+	for _, impt := range f.Imports {
+		impSpec := &ImportSpec{
+			Path: impt.Path.Value,
 		}
+		if impt.Name != nil {
+			impSpec.Name = impt.Name.Name
+		}
+		imports = append(imports, impSpec)
 	}
-	return args
+
+	return &FileSpec{
+		Pkg:     pkg.Name,
+		Markers: markers,
+		Imports: imports,
+	}, []error{}
 }
 
-func (p *parser) extractMarkers(info *types.Info, fn *ast.FuncDecl) ([]*Marker, []error) {
+func (p *parser) extractMarkers(info *types.Info, fn *ast.FuncDecl) ([]*MarkerSpec, []error) {
 	if fn.Body == nil {
 		return nil, []error{}
 	}
-	markers := make([]*Marker, 0)
+	markers := make([]*MarkerSpec, 0)
 	for _, stmt := range fn.Body.List {
 		switch stmt := stmt.(type) {
 		case *ast.ExprStmt:
@@ -169,11 +176,10 @@ func (p *parser) extractMarkers(info *types.Info, fn *ast.FuncDecl) ([]*Marker, 
 				!p.isDSLKeyword(obj.Name()) {
 				continue
 			}
-			markers = append(markers, &Marker{
-				Sig:  p.processFuncSignature(obj.(*types.Func)),
-				Args: p.ExtractArgs(call),
-				Node: stmt,
-				Type: EXPR_STMT,
+			markers = append(markers, &MarkerSpec{
+				FunctionMarker: p.processFuncMarker(call, obj.(*types.Func)),
+				Node:           stmt,
+				Type:           FUNC_STMT,
 			})
 		}
 	}
@@ -197,63 +203,6 @@ func (p *parser) qualifiedIdentObject(info *types.Info, expr ast.Expr) types.Obj
 	default:
 		return nil
 	}
-}
-
-type argSignature struct {
-	Name string
-	Type types.Type
-}
-
-type funcSignature struct {
-	Name       string
-	Pkg        *types.Package
-	Params     []argSignature
-	Return     argSignature
-	HasVarArgs bool
-	HasErr     bool
-	HasCleanup bool
-}
-
-func (p *parser) processFuncSignature(fn *types.Func) funcSignature {
-	sig := fn.Type().(*types.Signature)
-	fsig := funcSignature{
-		Name:       fn.Name(),
-		Pkg:        fn.Pkg(),
-		Params:     make([]argSignature, 0),
-		HasVarArgs: sig.Variadic(),
-	}
-
-	// Check function params
-	for i := 0; i < sig.Params().Len(); i++ {
-		param := sig.Params().At(i)
-		fsig.Params = append(fsig.Params, argSignature{
-			Name: param.Name(),
-			Type: param.Type(),
-		})
-	}
-
-	// Check function return values
-	results := sig.Results()
-	if results.Len() > 0 {
-		validateType := func(results *types.Tuple, tp types.Type) bool {
-			isIdentical := false
-			for i := 0; i < results.Len(); i++ {
-				isIdentical = types.Identical(results.At(i).Type(), tp)
-			}
-			return isIdentical
-		}
-
-		// TODO: add validations
-		out := results.At(0)
-		fsig.Return = argSignature{
-			Name: out.Name(),
-			Type: out.Type(),
-		}
-		fsig.HasErr = validateType(results, types.Universe.Lookup("error").Type())
-		fsig.HasCleanup = validateType(results, types.NewSignatureType(nil, nil, nil, nil, nil, false))
-	}
-
-	return fsig
 }
 
 func (p *parser) isDSLKeyword(name string) bool {

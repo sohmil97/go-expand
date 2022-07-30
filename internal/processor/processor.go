@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	dslImp "x/dsl"
-	"x/internal/dsl"
 	"x/internal/processor/generator"
 	"x/internal/processor/parser"
 )
@@ -79,12 +77,12 @@ func (p *processor) Generate(ctx context.Context) ([]GenerateResult, []error) {
 			fileNameSegments := strings.Split(strings.Split(pkg.GoFiles[j], ".go")[0], "/")
 			fileName := fileNameSegments[len(fileNameSegments)-1]
 			result.OutputPath = fmt.Sprintf("%s/%s_gen.go", outDir, fileName)
-			markers, errs := p.parser.ParseFile(pkg, syntax)
+			fileSpec, errs := p.parser.ParseFile(pkg, syntax)
 			if len(errs) > 0 {
 				result.Errs = errs
 				continue
 			}
-			p.processMarkers(markers)
+			p.processFile(fileSpec)
 			generator := generator.New(pkg)
 			goSrc := generator.GenerateSource("")
 			fmtSrc, err := format.Source(goSrc)
@@ -97,30 +95,29 @@ func (p *processor) Generate(ctx context.Context) ([]GenerateResult, []error) {
 			}
 			result.Content = goSrc
 
-			fmt.Printf("file: %s,\n markers: %#v\n\n", fileName, markers[0])
+			fmt.Printf("file: %s,\n markers: %#v\n\n", fileName, fileSpec.Markers[0].FunctionMarker)
 			results = append(results, result)
 		}
 	}
-
 	return results, nil
 }
 
-func (p *processor) processMarkers(markers []*parser.Marker) {
-	for _, m := range markers {
-		dslProcessor := dsl.Markers[m.Sig.Name]
-		dslProcessor(m.Node, dslImp.NodeSpec{
-			Args: m.Args,
-		})
-		// astutil.Apply(m.Node,
-		// 	func(c *astutil.Cursor) bool {
-		// 		c.Replace(pn)
-		// 		return false
-		// 	},
-		// 	func(c *astutil.Cursor) bool {
-		// 		return true
-		// 	},
-		// )
-	}
+func (p *processor) processFile(fileSpec *parser.FileSpec) {
+	// for _, m := range fileSpec.Markers {
+	// dslProcessor := dsl.Markers[m.Sig.Name]
+	// dslProcessor(m.Node, dslImp.NodeSpec{
+	// Args: m.Args,
+	// })
+	// astutil.Apply(m.Node,
+	// 	func(c *astutil.Cursor) bool {
+	// 		c.Replace(pn)
+	// 		return false
+	// 	},
+	// 	func(c *astutil.Cursor) bool {
+	// 		return true
+	// 	},
+	// )
+	// }
 }
 
 func (p *processor) detectOutputDir(paths []string) (string, error) {

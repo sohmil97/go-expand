@@ -5,5 +5,5 @@ import (
 )
 
 func main() {
-	dsl.Log(`SELECT * FROM users WHERE id = ?`, 1)
+	dsl.Log(5, `SELECT * FROM users WHERE id = ?`, 1)
 }
