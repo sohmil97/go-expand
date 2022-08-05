@@ -4,12 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go/format"
+	"go/ast"
+	"go/printer"
+	"os"
 	"path/filepath"
 	"strings"
 
-	"x/internal/processor/generator"
+	dsl2 "x/dsl"
+	"x/internal/dsl"
 	"x/internal/processor/parser"
+
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 type GenerateResult struct {
@@ -82,42 +87,55 @@ func (p *processor) Generate(ctx context.Context) ([]GenerateResult, []error) {
 				result.Errs = errs
 				continue
 			}
+			ast.Print(pkg.Fset, fileSpec.Syntax)
 			p.processFile(fileSpec)
-			generator := generator.New(pkg)
-			goSrc := generator.GenerateSource("")
-			fmtSrc, err := format.Source(goSrc)
-			if err != nil {
-				// This is likely a bug from a poorly generated source file.
-				// Add an error but also the unformatted source.
-				result.Errs = append(result.Errs, err)
-			} else {
-				goSrc = fmtSrc
-			}
-			result.Content = goSrc
 
-			fmt.Printf("file: %s,\n markers: %#v\n\n", fileName, fileSpec.Markers[0].FunctionMarker)
-			results = append(results, result)
+			printer.Fprint(os.Stdout, pkg.Fset, fileSpec.Syntax)
+
+			// generator := generator.New(pkg)
+			// goSrc := generator.GenerateSource("")
+			// fmtSrc, err := format.Source(goSrc)
+			// if err != nil {
+			// 	// This is likely a bug from a poorly generated source file.
+			// 	// Add an error but also the unformatted source.
+			// 	result.Errs = append(result.Errs, err)
+			// } else {
+			// 	goSrc = fmtSrc
+			// }
+			// result.Content = goSrc
+
+			// fmt.Printf("file: %s,\n markers: %#v\n\n", fileName, fileSpec)
+			// results = append(results, result)
 		}
 	}
 	return results, nil
 }
 
 func (p *processor) processFile(fileSpec *parser.FileSpec) {
-	// for _, m := range fileSpec.Markers {
-	// dslProcessor := dsl.Markers[m.Sig.Name]
-	// dslProcessor(m.Node, dslImp.NodeSpec{
-	// Args: m.Args,
-	// })
-	// astutil.Apply(m.Node,
-	// 	func(c *astutil.Cursor) bool {
-	// 		c.Replace(pn)
-	// 		return false
-	// 	},
-	// 	func(c *astutil.Cursor) bool {
-	// 		return true
-	// 	},
-	// )
-	// }
+	astutil.Apply(fileSpec.Syntax,
+		func(c *astutil.Cursor) bool {
+			n := c.Node()
+			marker := fileSpec.Markers[0]
+			if n == marker.Node {
+				processor := dsl.Markers[marker.FunctionMarker.Signature.Name]
+				pns, imps, err := processor(n, dsl2.NodeSpec{})
+				if err != nil {
+					fmt.Print(err)
+				}
+				if len(imps) > 0 {
+					// astutil.AddImport()
+					// todo add imports
+				}
+				for _, pn := range pns {
+					c.InsertAfter(pn)
+				}
+				c.Delete()
+				return false
+			}
+			return true
+		},
+		func(c *astutil.Cursor) bool { return true },
+	)
 }
 
 func (p *processor) detectOutputDir(paths []string) (string, error) {

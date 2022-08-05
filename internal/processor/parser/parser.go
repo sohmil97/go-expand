@@ -12,12 +12,13 @@ import (
 
 const IMPORT_PATH = "x/dsl"
 
-const ( 
+const (
 	FUNC_STMT = iota
 )
 
 type FileSpec struct {
-	Pkg string
+	Pkg    string
+	Syntax *ast.File
 
 	Markers []*MarkerSpec
 	Imports []*ImportSpec
@@ -124,10 +125,10 @@ func (p *parser) Load(ctx context.Context, directory string) ([]*packages.Packag
 	return pkgs, nil
 }
 
-func (p *parser) ParseFile(pkg *packages.Package, f *ast.File) (*FileSpec, []error) {
+func (p *parser) ParseFile(pkg *packages.Package, syntax *ast.File) (*FileSpec, []error) {
 	//TODO: make parallel
 	markers := make([]*MarkerSpec, 0)
-	for _, decl := range f.Decls {
+	for _, decl := range syntax.Decls {
 		fn, ok := decl.(*ast.FuncDecl)
 		if !ok {
 			continue
@@ -140,7 +141,7 @@ func (p *parser) ParseFile(pkg *packages.Package, f *ast.File) (*FileSpec, []err
 	}
 
 	imports := make([]*ImportSpec, 0)
-	for _, impt := range f.Imports {
+	for _, impt := range syntax.Imports {
 		impSpec := &ImportSpec{
 			Path: impt.Path.Value,
 		}
@@ -152,6 +153,7 @@ func (p *parser) ParseFile(pkg *packages.Package, f *ast.File) (*FileSpec, []err
 
 	return &FileSpec{
 		Pkg:     pkg.Name,
+		Syntax:  syntax,
 		Markers: markers,
 		Imports: imports,
 	}, []error{}

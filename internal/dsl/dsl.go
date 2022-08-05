@@ -12,11 +12,11 @@ const (
 )
 
 var Markers = map[string]dsl.Processor{
-	"Query": GetMarkerProcessor(DATABASE, db.QUERY_PROCESSOR),
-	"Log":   GetMarkerProcessor(LOGGER, logger.LOG_PROCESSOR),
+	"Query": getMarkerProcessor(DATABASE, db.QUERY_PROCESSOR),
+	"Log":   getMarkerProcessor(LOGGER, logger.LOG_PROCESSOR),
 }
 
-func GetMarkerProcessor(gp int, tp int) dsl.Processor {
+func getMarkerProcessor(gp int, tp int) dsl.Processor {
 	switch gp {
 	case DATABASE:
 		return db.GetProcessor(tp)
