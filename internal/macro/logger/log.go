@@ -7,6 +7,7 @@ import (
 )
 
 func log(spec types.NodeSpec) ([]ast.Node, []string, error) {
+	// TODO: consider kotlin dsl style
 	return []ast.Node{
 		generator.GenerateExprStatement(
 			generator.GenerateFuncAST(
