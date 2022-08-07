@@ -16,7 +16,6 @@ func (p *parser) processFuncMarker(fn *ast.CallExpr, fnObj *goTypes.Func) *Funct
 	marker := &FunctionMarker{
 		Args: map[types.ParamSpec]interface{}{},
 	}
-
 	sig := fnObj.Type().(*goTypes.Signature)
 	fsig := types.Signature{
 		Name:   fnObj.Name(),

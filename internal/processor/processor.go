@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go/ast"
 	"go/printer"
 	"os"
 	"path/filepath"
@@ -87,7 +86,9 @@ func (p *processor) Generate(ctx context.Context) ([]GenerateResult, []error) {
 				result.Errs = errs
 				continue
 			}
-			ast.Print(pkg.Fset, fileSpec.Syntax)
+			// ast.Print(pkg.Fset, fileSpec.Syntax)
+			// fmt.Printf("file: %s,\n markers: %#v\n\n", fileName, fileSpec.Markers[0].FunctionMarker.Args)
+
 			p.processFile(fileSpec)
 
 			printer.Fprint(os.Stdout, pkg.Fset, fileSpec.Syntax)
@@ -104,7 +105,6 @@ func (p *processor) Generate(ctx context.Context) ([]GenerateResult, []error) {
 			// }
 			// result.Content = goSrc
 
-			// fmt.Printf("file: %s,\n markers: %#v\n\n", fileName, fileSpec)
 			// results = append(results, result)
 		}
 	}
