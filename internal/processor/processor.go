@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	dsl2 "x/dsl"
-	"x/internal/dsl"
+	"x/internal/macro"
 	"x/internal/processor/parser"
+	"x/internal/types"
 
 	"golang.org/x/tools/go/ast/astutil"
 )
@@ -117,8 +117,11 @@ func (p *processor) processFile(fileSpec *parser.FileSpec) {
 			n := c.Node()
 			marker := fileSpec.Markers[0]
 			if n == marker.Node {
-				processor := dsl.Markers[marker.FunctionMarker.Signature.Name]
-				pns, imps, err := processor(n, dsl2.NodeSpec{})
+				processor := macro.Markers[marker.FunctionMarker.Signature.Name]
+				pns, imps, err := processor(types.NodeSpec{
+					Node: n,
+					Args: marker.FunctionMarker.Args,
+				})
 				if err != nil {
 					fmt.Print(err)
 				}

@@ -1,12 +1,14 @@
 package db
 
-import "x/dsl"
+import (
+	"x/internal/types"
+)
 
 const (
 	QUERY_PROCESSOR = iota
 )
 
-func GetProcessor(tp int) dsl.Processor {
+func GetProcessor(tp int) types.Processor {
 	switch tp {
 	case QUERY_PROCESSOR:
 		return query

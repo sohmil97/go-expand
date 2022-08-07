@@ -3,50 +3,25 @@ package parser
 import (
 	"fmt"
 	"go/ast"
-	"go/types"
+	goTypes "go/types"
+	"x/internal/types"
 )
 
 type FunctionMarker struct {
-	Signature signature
-	Args      map[paramSpec]interface{}
+	Signature types.Signature
+	Args      map[types.ParamSpec]interface{}
 }
 
-type identifier struct {
-	Name string
-	Type types.Type
-}
-
-type paramSpec struct {
-	identifier
-	IsVarArgs bool
-}
-
-type argSpec map[paramSpec]interface{}
-
-type returnSpec struct {
-	identifier
-
-	IsErr     bool
-	IsCleanup bool
-}
-
-type signature struct {
-	Name    string
-	Pkg     *types.Package
-	Params  []paramSpec
-	Returns []returnSpec
-}
-
-func (p *parser) processFuncMarker(fn *ast.CallExpr, fnObj *types.Func) *FunctionMarker {
+func (p *parser) processFuncMarker(fn *ast.CallExpr, fnObj *goTypes.Func) *FunctionMarker {
 	marker := &FunctionMarker{
-		Args: map[paramSpec]interface{}{},
+		Args: map[types.ParamSpec]interface{}{},
 	}
 
-	sig := fnObj.Type().(*types.Signature)
-	fsig := signature{
+	sig := fnObj.Type().(*goTypes.Signature)
+	fsig := types.Signature{
 		Name:   fnObj.Name(),
 		Pkg:    fnObj.Pkg(),
-		Params: make([]paramSpec, 0),
+		Params: make([]types.ParamSpec, 0),
 	}
 
 	// Extract function args
@@ -64,13 +39,13 @@ func (p *parser) processFuncMarker(fn *ast.CallExpr, fnObj *types.Func) *Functio
 	return marker
 }
 
-func (p *parser) extractFuncArgs(args []ast.Expr, params *types.Tuple, hasVarArgs bool) argSpec {
-	processedArgs := make(argSpec)
+func (p *parser) extractFuncArgs(args []ast.Expr, params *goTypes.Tuple, hasVarArgs bool) types.ArgSpec {
+	processedArgs := make(types.ArgSpec)
 	for i := 0; i < params.Len(); i++ {
 		param := params.At(i)
 		isVarArgsParam := hasVarArgs && i == params.Len()-1
-		id := paramSpec{
-			identifier: identifier{
+		id := types.ParamSpec{
+			Identifier: types.Identifier{
 				Name: param.Name(),
 				Type: param.Type(),
 			},
@@ -90,15 +65,15 @@ func (p *parser) extractFuncArgs(args []ast.Expr, params *types.Tuple, hasVarArg
 	return processedArgs
 }
 
-func (p parser) extractFuncReturns(returns *types.Tuple) []returnSpec {
-	processedReturns := make([]returnSpec, returns.Len())
+func (p parser) extractFuncReturns(returns *goTypes.Tuple) []types.ReturnSpec {
+	processedReturns := make([]types.ReturnSpec, returns.Len())
 	for i := range processedReturns {
-		processedReturns[i].identifier = identifier{
+		processedReturns[i].Identifier = types.Identifier{
 			Name: returns.At(0).Name(),
 			Type: returns.At(0).Type(),
 		}
-		processedReturns[i].IsErr = types.Identical(returns.At(i).Type(), types.Universe.Lookup("error").Type())
-		processedReturns[i].IsCleanup = types.Identical(returns.At(i).Type(), types.NewSignatureType(nil, nil, nil, nil, nil, false))
+		processedReturns[i].IsErr = goTypes.Identical(returns.At(i).Type(), goTypes.Universe.Lookup("error").Type())
+		processedReturns[i].IsCleanup = goTypes.Identical(returns.At(i).Type(), goTypes.NewSignatureType(nil, nil, nil, nil, nil, false))
 	}
 	return processedReturns
 }

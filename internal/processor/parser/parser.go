@@ -3,9 +3,10 @@ package parser
 import (
 	"context"
 	"go/ast"
-	"go/types"
+	goTypes "go/types"
 	"strings"
-	"x/internal/dsl"
+	"x/internal/macro"
+	"x/internal/types"
 
 	"golang.org/x/tools/go/packages"
 )
@@ -21,12 +22,7 @@ type FileSpec struct {
 	Syntax *ast.File
 
 	Markers []*MarkerSpec
-	Imports []*ImportSpec
-}
-
-type ImportSpec struct {
-	Path string
-	Name string
+	Imports []*types.ImportSpec
 }
 
 type MarkerSpec struct {
@@ -140,9 +136,9 @@ func (p *parser) ParseFile(pkg *packages.Package, syntax *ast.File) (*FileSpec, 
 		markers = append(markers, em...)
 	}
 
-	imports := make([]*ImportSpec, 0)
+	imports := make([]*types.ImportSpec, 0)
 	for _, impt := range syntax.Imports {
-		impSpec := &ImportSpec{
+		impSpec := &types.ImportSpec{
 			Path: impt.Path.Value,
 		}
 		if impt.Name != nil {
@@ -159,7 +155,7 @@ func (p *parser) ParseFile(pkg *packages.Package, syntax *ast.File) (*FileSpec, 
 	}, []error{}
 }
 
-func (p *parser) extractMarkers(info *types.Info, fn *ast.FuncDecl) ([]*MarkerSpec, []error) {
+func (p *parser) extractMarkers(info *goTypes.Info, fn *ast.FuncDecl) ([]*MarkerSpec, []error) {
 	if fn.Body == nil {
 		return nil, []error{}
 	}
@@ -179,7 +175,7 @@ func (p *parser) extractMarkers(info *types.Info, fn *ast.FuncDecl) ([]*MarkerSp
 				continue
 			}
 			markers = append(markers, &MarkerSpec{
-				FunctionMarker: p.processFuncMarker(call, obj.(*types.Func)),
+				FunctionMarker: p.processFuncMarker(call, obj.(*goTypes.Func)),
 				Node:           stmt,
 				Type:           FUNC_STMT,
 			})
@@ -189,7 +185,7 @@ func (p *parser) extractMarkers(info *types.Info, fn *ast.FuncDecl) ([]*MarkerSp
 	return markers, []error{}
 }
 
-func (p *parser) qualifiedIdentObject(info *types.Info, expr ast.Expr) types.Object {
+func (p *parser) qualifiedIdentObject(info *goTypes.Info, expr ast.Expr) goTypes.Object {
 	switch expr := expr.(type) {
 	case *ast.Ident:
 		return info.ObjectOf(expr)
@@ -198,7 +194,7 @@ func (p *parser) qualifiedIdentObject(info *types.Info, expr ast.Expr) types.Obj
 		if !ok {
 			return nil
 		}
-		if _, ok := info.ObjectOf(pkgName).(*types.PkgName); !ok {
+		if _, ok := info.ObjectOf(pkgName).(*goTypes.PkgName); !ok {
 			return nil
 		}
 		return info.ObjectOf(expr.Sel)
@@ -208,7 +204,7 @@ func (p *parser) qualifiedIdentObject(info *types.Info, expr ast.Expr) types.Obj
 }
 
 func (p *parser) isDSLKeyword(name string) bool {
-	for keyword := range dsl.Markers {
+	for keyword := range macro.Markers {
 		if name == keyword {
 			return true
 		}

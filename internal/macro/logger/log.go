@@ -3,22 +3,15 @@ package logger
 import (
 	"go/ast"
 	"go/token"
-	"x/dsl"
+	"x/internal/types"
 )
 
-func log(n ast.Node, spec dsl.NodeSpec) ([]ast.Node, []string, error) {
-	args := spec.Args
-	// return &ast.CallExpr{
-	// 	Fun: &ast.SelectorExpr{
-	// 		X: &ast.Ident{
-	// 			Name: "fmt",
-	// 		},
-	// 		Sel: &ast.Ident{
-	// 			Name: "Println",
-	// 		},
-	// 	},
-	// 	Args: args,
-	// }, []string{"fmt"}, nil
+func log(spec types.NodeSpec) ([]ast.Node, []string, error) {
+	const template string = "fmt.print(%s)"
+	// fnArgs := ""
+	// for k, v := range spec.Args {
+	// 	k
+	// }
 
 	return []ast.Node{
 		&ast.ExprStmt{
@@ -31,11 +24,11 @@ func log(n ast.Node, spec dsl.NodeSpec) ([]ast.Node, []string, error) {
 						Name: "Println",
 					},
 				},
-				Args: args,
+				// Args: spec.Args,
 			},
 		},
 		&ast.AssignStmt{
-			Lhs: []ast.Expr{	
+			Lhs: []ast.Expr{
 				&ast.Ident{
 					Name: "a",
 				},

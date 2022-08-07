@@ -1,9 +1,9 @@
-package dsl
+package macro
 
 import (
-	"x/dsl"
-	"x/internal/dsl/db"
-	"x/internal/dsl/logger"
+	"x/internal/macro/db"
+	"x/internal/macro/logger"
+	"x/internal/types"
 )
 
 const (
@@ -11,12 +11,12 @@ const (
 	LOGGER
 )
 
-var Markers = map[string]dsl.Processor{
+var Markers = map[string]types.Processor{
 	"Query": getMarkerProcessor(DATABASE, db.QUERY_PROCESSOR),
 	"Log":   getMarkerProcessor(LOGGER, logger.LOG_PROCESSOR),
 }
 
-func getMarkerProcessor(gp int, tp int) dsl.Processor {
+func getMarkerProcessor(gp int, tp int) types.Processor {
 	switch gp {
 	case DATABASE:
 		return db.GetProcessor(tp)
